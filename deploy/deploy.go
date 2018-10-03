@@ -1,12 +1,7 @@
 package deploy
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -18,89 +13,37 @@ type BearerTokenRetriever interface {
 	RetrieveToken() string
 }
 
+// PodListRetriever represents any struct that returns a PodList
+type PodListRetriever interface {
+	PodInformation() (*PodList, error)
+}
+
+// Deployer represents any struct that can deploy a container
+type Deployer interface {
+	Deploy(containerTag string) error
+}
+
 // KubernetesClusterNamespace is a struct used to connect to a Kubernetes cluster.
 type KubernetesClusterNamespace struct {
-	Client             *http.Client
-	Description        string
-	Endpoint           string
-	Namespace          string
-	DeploymentName     string
-	ContainerName      string
-	ContainerImage     string
-	BearerTokenService BearerTokenRetriever
+	Description  string
+	PodRetriever PodListRetriever
+	DeployMaker  Deployer
 }
 
 // GetPodList retrieves all the pods running in a deployment
 func (n *KubernetesClusterNamespace) GetPodList() (*PodList, error) {
-	url := fmt.Sprintf("https://%s/api/v1/namespaces/%s/pods", n.Endpoint, n.Namespace)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
+	if n.PodRetriever == nil {
+		return nil, fmt.Errorf("missing PodListRetriever")
 	}
-
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", n.BearerTokenService.RetrieveToken()))
-	res, err := n.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("received %v", res.StatusCode)
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	podList, err := convertJSON(body)
-	if err != nil {
-		return nil, err
-	}
-
-	return podList, nil
+	return n.PodRetriever.PodInformation()
 }
 
 // Deploy changes the image for an existing deployment and Kubernetes rebuilds the pods
 func (n *KubernetesClusterNamespace) Deploy(containerTag string) error {
-	url := fmt.Sprintf("https://%s/apis/extensions/v1beta1/namespaces/%s/deployments/%s", n.Endpoint, n.Namespace, n.DeploymentName)
-	image := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s:%s"}]}}}}`, n.ContainerName, n.ContainerImage, containerTag)
-	payload := bytes.NewBuffer([]byte(image))
-
-	req, err := http.NewRequest(http.MethodPatch, url, payload)
-	if err != nil {
-		return err
+	if n.DeployMaker == nil {
+		return fmt.Errorf("missing DeployMaker")
 	}
-	req.Header.Add("Content-Type", "application/strategic-merge-patch+json")
-
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", n.BearerTokenService.RetrieveToken()))
-	res, err := n.Client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	podDeployResponse := &PodDeployResponse{}
-	err = json.Unmarshal([]byte(body), &podDeployResponse)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("--- DEPLOYED %s:%s ---", n.ContainerImage, containerTag)
-	// log.Printf("podDeployResponse.AvailableReplicas %+v", podDeployResponse.Status.AvailableReplicas)
-
-	return nil
-}
-
-func convertJSON(jsonBytes []byte) (podList *PodList, err error) {
-	podList = &PodList{}
-	err = json.Unmarshal([]byte(jsonBytes), podList)
-	return
+	return n.DeployMaker.Deploy(containerTag)
 }
 
 // PodStatusForFirstContainer returns a state for an individual Pod. Leave desiredImageHash as an
