@@ -54,3 +54,13 @@ func (d *KubernetesDeployer) Deploy(containerTag string) error {
 	}
 	return nil
 }
+
+// PodDeployResponse is part of the deployment response coming back from Kubernetes
+type PodDeployResponse struct {
+	Status PodDeployStatus `json:"status"`
+}
+
+// PodDeployStatus has details about what state the Pod is in.
+type PodDeployStatus struct {
+	AvailableReplicas int `json:"availableReplicas"`
+}

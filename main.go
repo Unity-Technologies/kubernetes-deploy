@@ -89,8 +89,13 @@ func (*sampleBearerTokenProvider) RetrieveToken() string {
 // printStatus runs through all pods in a deployment, and displays their status.
 func printStatus(podList *deploy.PodList, desiredImageTag string) {
 	now := time.Now()
-	for _, items := range podList.Items {
-		fmt.Println(deploy.FormatPodStatusForFirstContainer(&items, now, desiredImageTag))
+
+	overview := podList.Overview()
+	for _, overview := range overview {
+		fmt.Printf("`%s` image has been *%s* for %.1f hours.\n",
+			overview.Tag,
+			overview.Status,
+			now.Sub(overview.Created).Hours())
 	}
 }
 
