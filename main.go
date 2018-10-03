@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,7 +13,6 @@ import (
 )
 
 func main() {
-
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
@@ -24,7 +24,7 @@ func main() {
 		},
 	}
 
-	tokenProvider := new(bearerTokenProvider)
+	tokenProvider := new(sampleBearerTokenProvider)
 
 	cluster := deploy.KubernetesClusterNamespace{
 		Client:             client,
@@ -43,32 +43,44 @@ func main() {
 		// Get a list of pods and their status
 		podList, err := cluster.GetPodList()
 		if err != nil {
-			log.Printf("Unable to retrieve pod list due to %s", err.Error())
+			fmt.Printf("Unable to retrieve pod list due to %s", err.Error())
 			return
 		}
-		log.Printf("%+v", podList)
+
+		printStatus(podList, "")
 	}
 
 	if command == "deploy" {
 		// Deploy container named KUBERNETES_DEPLOYMENT_IMAGE_PREFIX:tag
 		err := cluster.Deploy(containerTag)
 		if err != nil {
-			log.Printf("Unable to deploy %q due to %s", containerTag, err.Error())
+			fmt.Printf("Unable to deploy %q due to %s", containerTag, err.Error())
 			return
 		}
-		log.Println("deployed!")
+
+		podList, _ := cluster.GetPodList()
+		printStatus(podList, containerTag)
 	}
 }
 
 // Sample BearerTokenRetriever
+type sampleBearerTokenProvider struct{}
 
-type bearerTokenProvider struct{}
-
-func (*bearerTokenProvider) RetrieveToken() string {
+func (*sampleBearerTokenProvider) RetrieveToken() string {
 	return os.Getenv("KUBERNETES_ENDPOINT_BEARER_TOKEN")
 }
 
+//
 // Helpers
+//
+
+// printStatus runs through all pods in a deployment, and displays their status.
+func printStatus(podList *deploy.PodList, desiredImageTag string) {
+	now := time.Now()
+	for _, items := range podList.Items {
+		fmt.Println(deploy.FormatPodStatusForFirstContainer(&items, now, desiredImageTag))
+	}
+}
 
 // pickCommand supports `deploy <hash>` otherwise defaults to `ls`
 func pickCommand(osArgs []string) (string, string) {

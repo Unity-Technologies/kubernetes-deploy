@@ -11,11 +11,14 @@ import (
 	"time"
 )
 
+// BearerTokenRetriever represents any struct that can return a Bearer token.
+// This supports both long-lived tokens (say from an environment variable) or
+// short-lived tokens that need to be refreshed regularly.
 type BearerTokenRetriever interface {
 	RetrieveToken() string
 }
 
-// KubernetesCluster is a struct used to connect to a Kubernetes cluster.
+// KubernetesClusterNamespace is a struct used to connect to a Kubernetes cluster.
 type KubernetesClusterNamespace struct {
 	Client             *http.Client
 	Description        string
@@ -27,6 +30,7 @@ type KubernetesClusterNamespace struct {
 	BearerTokenService BearerTokenRetriever
 }
 
+// GetPodList retrieves all the pods running in a deployment
 func (n *KubernetesClusterNamespace) GetPodList() (*PodList, error) {
 	url := fmt.Sprintf("https://%s/api/v1/namespaces/%s/pods", n.Endpoint, n.Namespace)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -35,7 +39,6 @@ func (n *KubernetesClusterNamespace) GetPodList() (*PodList, error) {
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", n.BearerTokenService.RetrieveToken()))
-
 	res, err := n.Client.Do(req)
 	if err != nil {
 		return nil, err
@@ -58,6 +61,7 @@ func (n *KubernetesClusterNamespace) GetPodList() (*PodList, error) {
 	return podList, nil
 }
 
+// Deploy changes the image for an existing deployment and Kubernetes rebuilds the pods
 func (n *KubernetesClusterNamespace) Deploy(containerTag string) error {
 	url := fmt.Sprintf("https://%s/apis/extensions/v1beta1/namespaces/%s/deployments/%s", n.Endpoint, n.Namespace, n.DeploymentName)
 	image := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s:%s"}]}}}}`, n.ContainerName, n.ContainerImage, containerTag)
@@ -99,7 +103,8 @@ func convertJSON(jsonBytes []byte) (podList *PodList, err error) {
 	return
 }
 
-// PodStatusForFirstContainer returns a state for an individual Pod
+// PodStatusForFirstContainer returns a state for an individual Pod. Leave desiredImageHash as an
+// empty string to avoid warning check if desired container is not running.
 func PodStatusForFirstContainer(pod *PodMetadataContainer, desiredImageHash string) (status string) {
 
 	// only check hash if desiredImageHash is not an empty string
@@ -124,7 +129,12 @@ func PodStatusForFirstContainer(pod *PodMetadataContainer, desiredImageHash stri
 	return
 }
 
-// FormatPodStatusForFirstContainer returns a nicely formatting Pod status string.
+// FormatPodStatusForFirstContainer returns a nicely formatting Pod status string including a warning
+// if image doesn't yet match one that is being deployed. Formatted in markdown for Slack.
+//
+// Examples:
+// "• `77d0ea51fdc30234918f2726d26479c66b7f7777` image has been *Running* for 45.7 hours."
+// "• `77d0ea51fdc30234918f2726d26479c66b7f7777` image has been *WrongHash* for 45.8 hours."
 func FormatPodStatusForFirstContainer(pod *PodMetadataContainer, now time.Time, desiredImageHash string) (result string) {
 	if len(pod.Status.ContainerStatuses) > 0 {
 		result = fmt.Sprintf("\n• `%s` image has been *%s* for %.1f hours.",
