@@ -23,11 +23,17 @@ func (p *PodList) Overview() []PodItem {
 	var metadata []PodItem
 
 	for _, item := range p.Items {
+		tag := ""
+		// an Evicted pod for example, will not have any ContainerStatuses
+		if item.Status.ContainerStatuses != nil {
+			tag = formatPodImage(item.Status.ContainerStatuses[0].Image)
+		}
+
 		metadata = append(metadata, PodItem{
 			Name:    item.Metadata.Name,
 			Status:  item.Status.Phase,
 			Created: item.Metadata.CreationTimestamp,
-			Tag:     formatPodImage(item.Status.ContainerStatuses[0].Image),
+			Tag:     tag,
 		})
 	}
 	return metadata

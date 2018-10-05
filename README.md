@@ -1,6 +1,6 @@
 # kubernetes-deploy
 
-A Go library for deploying to Kubernetes and retrieving status of that deploy.
+A Go module for deploying to Kubernetes and retrieving status of that deploy.
 
 Useful for deploy bots.
 
