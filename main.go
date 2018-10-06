@@ -26,27 +26,23 @@ func main() {
 
 	tokenProvider := new(sampleBearerTokenProvider)
 
-	podListRetriever := &deploy.KubernetesPodListRetriever{
-		Client:             client,
-		Endpoint:           os.Getenv("KUBERNETES_ENDPOINT"),
-		Namespace:          os.Getenv("KUBERNETES_NAMESPACE"),
-		BearerTokenService: tokenProvider,
-	}
-
-	deployer := &deploy.KubernetesDeployer{
-		Client:             client,
-		Endpoint:           os.Getenv("KUBERNETES_ENDPOINT"),
-		Namespace:          os.Getenv("KUBERNETES_NAMESPACE"),
-		BearerTokenService: tokenProvider,
-		DeploymentName:     os.Getenv("KUBERNETES_DEPLOYMENT_NAME"),
-		ContainerName:      os.Getenv("KUBERNETES_DEPLOYMENT_CONTAINERNAME"),
-		ContainerImage:     os.Getenv("KUBERNETES_DEPLOYMENT_IMAGE_PREFIX"),
-	}
-
 	cluster := deploy.KubernetesClusterNamespace{
-		Description:  os.Getenv("DESCRIPTION"),
-		PodRetriever: podListRetriever,
-		DeployMaker:  deployer,
+		Description: os.Getenv("DESCRIPTION"),
+		PodRetriever: &deploy.KubernetesPodListRetriever{
+			Client:             client,
+			Endpoint:           os.Getenv("KUBERNETES_ENDPOINT"),
+			Namespace:          os.Getenv("KUBERNETES_NAMESPACE"),
+			BearerTokenService: tokenProvider,
+		},
+		DeployMaker: &deploy.KubernetesDeployer{
+			Client:             client,
+			Endpoint:           os.Getenv("KUBERNETES_ENDPOINT"),
+			Namespace:          os.Getenv("KUBERNETES_NAMESPACE"),
+			BearerTokenService: tokenProvider,
+			DeploymentName:     os.Getenv("KUBERNETES_DEPLOYMENT_NAME"),
+			ContainerName:      os.Getenv("KUBERNETES_DEPLOYMENT_CONTAINERNAME"),
+			ContainerImage:     os.Getenv("KUBERNETES_DEPLOYMENT_IMAGE_PREFIX"),
+		},
 	}
 
 	command, containerTag := pickCommand(os.Args)
