@@ -8,6 +8,8 @@ Includes `main.go` sample app demonstrates its features.
 
 Tested with Go 1.10
 
+[![Build Status](https://travis-ci.org/Unity-Technologies/kubernetes-deploy.png?branch=master)](https://travis-ci.org/Unity-Technologies/kubernetes-deploy)
+
 # How does it work?
 
 Calls Kubernetes API to update the `image` of an existing deployment and checks that new images are running successful.
@@ -29,3 +31,7 @@ The sample `main.go` program supports two commands:
 
     # deploy container with this specific tag
     go run main.go deploy 77d0ea51fdc30234918f2726d26479c66b7f777   
+
+# Run tests
+
+    go test ./...
