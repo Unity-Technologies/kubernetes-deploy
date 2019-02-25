@@ -39,6 +39,21 @@ func (p *PodList) Overview() []PodItem {
 	return metadata
 }
 
+// FilterByDeployment returns a new PodList with only deployment names that match prefix.
+// Handy for only retrieving specific deployment when running multiple deployments in same namespace.
+func (p *PodList) FilterByDeployment(namePrefix string) *PodList {
+	pods := []PodMetadataContainer{}
+
+	for _, item := range p.Items {
+		if strings.HasPrefix(item.Metadata.Name, namePrefix) {
+			pods = append(pods, item)
+		}
+	}
+	return &PodList{
+		Items: pods,
+	}
+}
+
 // formatPodImage converts a full pod image name into only the docker image and commit hash
 func formatPodImage(raw string) (result string) {
 	s := strings.Split(raw, ":")

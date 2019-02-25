@@ -69,6 +69,29 @@ func TestPodListNoContainerStatus(t *testing.T) {
 	assert.Equal(t, timestamp, pod.Created)
 }
 
+func TestPodListFilterByDeployment_WithMatch(t *testing.T) {
+	clusterNamespace := &KubernetesClusterNamespace{
+		PodRetriever: &MockPodListWithoutContainerStatuses{},
+	}
+
+	podList, _ := clusterNamespace.GetPodList()
+
+	filteredPodList := podList.FilterByDeployment("myapp-deployment")
+	pod := filteredPodList.Items[0]
+	assert.Equal(t, "myapp-deployment-1376141578-9q2hx", pod.Metadata.Name)
+}
+
+func TestPodListFilterByDeployment_NoMatch(t *testing.T) {
+	clusterNamespace := &KubernetesClusterNamespace{
+		PodRetriever: &MockPodListWithoutContainerStatuses{},
+	}
+
+	podList, _ := clusterNamespace.GetPodList()
+
+	filteredPodList := podList.FilterByDeployment("unknown-deployment")
+	assert.Equal(t, 0, len(filteredPodList.Items))
+}
+
 //
 // MOCK DATA
 //
